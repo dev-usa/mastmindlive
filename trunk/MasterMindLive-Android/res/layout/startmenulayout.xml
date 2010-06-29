@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:orientation="vertical" android:layout_width="wrap_content"
+	android:layout_height="wrap_content">
+
+	<TextView android:text="@string/welcome" android:layout_width="wrap_content"
+		android:layout_height="wrap_content">
+	</TextView>
+
+	<LinearLayout android:orientation="horizontal"
+		android:layout_width="wrap_content" android:layout_height="wrap_content">
+		<TextView android:layout_width="fill_parent"
+			android:layout_height="wrap_content" android:layout_marginTop="10dip"
+			android:text="@string/numcolorslabel" />
+
+		<Spinner android:id="@+id/numcolorspinner"
+			android:layout_width="fill_parent" android:layout_height="wrap_content"
+			android:drawSelectorOnTop="true" android:prompt="@string/spinner_generic_prompt" />
+	</LinearLayout>
+	<LinearLayout android:orientation="horizontal"
+		android:layout_width="wrap_content" android:layout_height="wrap_content">
+		<TextView android:layout_width="fill_parent"
+			android:layout_height="wrap_content" android:layout_marginTop="10dip"
+			android:text="@string/numguesseslabel" />
+
+		<Spinner android:id="@+id/numguessesspinner"
+			android:layout_width="fill_parent" android:layout_height="wrap_content"
+			android:drawSelectorOnTop="true" android:prompt="@string/spinner_generic_prompt" />
+	</LinearLayout>
+	<LinearLayout android:orientation="horizontal"
+		android:layout_width="wrap_content" android:layout_height="wrap_content">
+		<TextView android:layout_width="fill_parent"
+			android:layout_height="wrap_content" android:layout_marginTop="10dip"
+			android:text="@string/numslotslabel" />
+
+		<Spinner android:id="@+id/numslotspinner"
+			android:layout_width="fill_parent" android:layout_height="wrap_content"
+			android:drawSelectorOnTop="true" android:prompt="@string/spinner_generic_prompt" />
+	</LinearLayout>
+	<Button android:id="@+id/start_game" android:text="@string/start_game"
+		android:layout_width="wrap_content" android:layout_height="wrap_content" />
+</LinearLayout>
