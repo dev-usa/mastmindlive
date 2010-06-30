@@ -11,10 +11,6 @@ import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 import android.widget.AdapterView.OnItemSelectedListener;
 
-import com.masterminelive.core.game.MasterMindGame;
-import com.masterminelive.core.players.Player;
-import com.masterminelive.core.players.PlayerType;
-
 /**
  * Android Activity for the initial user screen User can pick number of
  * colors/pins for game number of guesses for guessing player and number of slot
