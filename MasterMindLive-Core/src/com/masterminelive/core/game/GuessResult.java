@@ -5,9 +5,15 @@ import java.util.List;
 
 public class GuessResult {
 
-	List<GuessResultPart> guessResultParts;
+	private List<GuessResultPart> guessResultParts;
+	private Slot slot;
+	private boolean winningGuess = false;
 	
-	public GuessResult(){
+	public GuessResult(Slot argSlot){
+		if(argSlot == null)
+			throw new IllegalArgumentException("argSlot is null");
+		
+		this.slot = argSlot;
 		this.guessResultParts = new ArrayList<GuessResultPart>();
 	}
 	
@@ -17,8 +23,21 @@ public class GuessResult {
 
 	public void addGuesResult(GuessResultPart guestResult){
 		this.guessResultParts.add(guestResult);
+		evaluateWinningGuess();
 	}
 	
+	private void evaluateWinningGuess(){
+		int rightColorRightSpotCounter = 0;
+		int colorSpots = this.slot.getGame().getNumSpots();
+		
+		for(GuessResultPart grp : this.guessResultParts){
+			if(grp.isRightColorRightSpot())
+				rightColorRightSpotCounter++;
+		}
+		
+		if(colorSpots == rightColorRightSpotCounter)
+			this.winningGuess = true;
+	}
 	public String getResultDesc(){
 		int numRightColorRightSpot = 0;
 		int numRightColorWrongSpot = 0;
@@ -32,4 +51,10 @@ public class GuessResult {
 		
 		return "Result: " + numRightColorRightSpot + " black," + numRightColorWrongSpot + " white";
 	}
+
+	public Boolean getWinningGuess() {
+		return winningGuess;
+	}
+	
+	
 }
