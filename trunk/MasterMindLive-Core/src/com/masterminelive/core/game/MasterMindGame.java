@@ -1,8 +1,6 @@
 package com.masterminelive.core.game;
 
-import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 import java.util.SortedMap;
@@ -12,33 +10,46 @@ import com.masterminelive.core.players.Player;
 import com.masterminelive.core.players.PlayerType;
 import com.masterminelive.util.OperationResponse;
 
-public class MasterMindGame implements Serializable{
+public class MasterMindGame{
 
-	public static Integer MAX_ALLOWED_GUESSES = 12;
-	public static Integer MAX_ALLOWED_SPOTS = 6;
-	public static Integer MAX_ALLOWED_COLORS = 7;
+	//different states the game can be in
+	public static int GAME_STATE_STARTED = 1;
+	public static int GAME_STATE_SECRET_CODE_ENTERED = 2;
+	public static int GAME_STATE_CODE_BREAKER_GUESSING = 3;
+	public static int GAME_STATE_CODE_BREAKER_BROKE_CODE = 4;
+	public static int GAME_STATE_CODE_BREAKER_RAN_OUT_OF_GUESSES = 5;
 	
-	private Integer slotSeq;
-	private Integer numGuesses;
-	private Integer numSpots;
-	private Integer numColors;
-	private Player player1;
-	private Player player2;
-	private SortedMap<Integer, Slot> slots;
-	private List<Piece> guessOptions;
-	private Integer currentGuessSlotNum;
-	private Slot secretSlot;
-	private Boolean secretSlotFinalized;
+	public static int MAX_ALLOWED_GUESSES = 12;
+	public static int MAX_ALLOWED_SPOTS = 6;
+	public static int MAX_ALLOWED_COLORS = 7;
+	
+	private int slotSeq; //internal numbering sequence to give slots a unique id
+	private int numGuesses; //number of chances the codeBreaker has to try and break the code
+	private int numSpots; //number of slotspots for the code
+	private int numColors; //number of possible colors the code can contain
+	private Player codeBreaker; //guessing player
+	private Player codeCreator; //secret code creating player
+	private SortedMap<Integer, Slot> slots; //the guess rows/slots for the board
+	private List<Piece> guessOptions; //the color pin/piece options for a given guess slot spot
+	private int currentGuessSlotNum; //current guess slot number
+	private Slot secretSlot; //secret code slot
+	private int gameState; //current state of the game
 	
 	/**
+	 * Constructor for a MasterMindLive Game
+	 * Validates input
+	 * assigns member variables
+	 * creates necessary empty slots
+	 * sets up color piece options the code creator and code breaker can use
+	 * starts the game
 	 * 
-	 * @param argNumSpots
-	 * @param argNumGuesses
-	 * @param argNumColors
-	 * @param argPlayer1
-	 * @param argPlayer2
+	 * @param argNumSpots - number of spots for the code pieces, the greater the number the harder the code is to break
+	 * @param argNumGuesses - number of attempts the code breaker has to break the code
+	 * @param argNumColors - number of colors/piece types available for the code
+	 * @param argCodeBreaker - code breaker player
+	 * @param argCodeCreator - code creator player
 	 */
-	public MasterMindGame(Integer argNumSpots, Integer argNumGuesses, Integer argNumColors, Player argPlayer1, Player argPlayer2){
+	public MasterMindGame(Integer argNumSpots, Integer argNumGuesses, Integer argNumColors, Player argCodeBreaker, Player argCodeCreator){
 		if(argNumSpots == null)
 			throw new IllegalArgumentException("argNumSpots is null");
 		
@@ -57,17 +68,17 @@ public class MasterMindGame implements Serializable{
 		if(argNumColors < 1 || argNumColors > MAX_ALLOWED_COLORS)
 			throw new IllegalArgumentException("argNumColors is not within allowed limit of 1-" + MAX_ALLOWED_COLORS);
 		
-		if(argPlayer1 == null)
-			throw new IllegalArgumentException("argPlayer1 is null");
+		if(argCodeBreaker == null)
+			throw new IllegalArgumentException("argCodeBreaker player is null");
 		
-		if(argPlayer2 == null)
-			throw new IllegalArgumentException("argPlayer2 is null");
+		if(argCodeCreator == null)
+			throw new IllegalArgumentException("argCodeCreator player is null");
 		
 		this.numSpots = argNumSpots;
 		this.numGuesses = argNumGuesses;
 		this.numColors = argNumColors;
-		this.player1 = argPlayer1;
-		this.player2 = argPlayer2;
+		this.codeBreaker = argCodeBreaker;
+		this.codeCreator = argCodeCreator;
 		this.slotSeq = 1;
 		this.currentGuessSlotNum = 1;
 		
@@ -79,7 +90,6 @@ public class MasterMindGame implements Serializable{
 		
 		
 		this.secretSlot = new Slot(this, this.slotSeq + 1);
-		this.secretSlotFinalized = false;
 		
 		this.guessOptions = new ArrayList<Piece>();
 		for(int i=1; i <= this.numColors; i++){
@@ -102,8 +112,11 @@ public class MasterMindGame implements Serializable{
 	}
 	
 	public void startGame(){
-		if(PlayerType.isPlayerComputer(this.getPlayer2())){
-			setupComputerSeceret(this.getPlayer2());
+		this.gameState = GAME_STATE_STARTED;
+		
+		//if computer player for code creator, create the code
+		if(PlayerType.isPlayerComputer(this.codeCreator)){
+			setupComputerSeceret(this.codeCreator);
 		}
 	}
 	
@@ -186,8 +199,12 @@ public class MasterMindGame implements Serializable{
 			return resp;
 		}
 		
-		this.secretSlotFinalized = true;		
+		this.gameState = GAME_STATE_SECRET_CODE_ENTERED;	
 		return resp;
+	}
+	
+	public void startCodeBreaking(){
+		this.gameState = GAME_STATE_CODE_BREAKER_GUESSING;
 	}
 	
 	public void addGuessPiece(Integer slotSpotNum, Piece guessPiece){
@@ -211,8 +228,8 @@ public class MasterMindGame implements Serializable{
 	}
 	
 	
-	public OperationResponse guess(){
-		OperationResponse resp = new OperationResponse();
+	public GuessResponse guess(){
+		GuessResponse resp = new GuessResponse();
 		Slot slot = getCurrentSlot();
 		if(slot.allSlotSpotsFilled() == false){
 			resp.setErrorMsg("Please guess a color for all the spots");
@@ -223,7 +240,20 @@ public class MasterMindGame implements Serializable{
 		currentSlot.setGuessEntered(true);
 		calculateGuessResults(currentSlot);
 		
-		this.currentGuessSlotNum++;
+		//sent boolean if winning guess
+		boolean winningGuess = currentSlot.getGuessResult().getWinningGuess();
+		resp.setWinningGuess(winningGuess); 
+		if(winningGuess){
+			this.gameState = GAME_STATE_CODE_BREAKER_BROKE_CODE;
+		}else{
+			if(this.currentGuessSlotNum == this.numGuesses){
+				//player ran out of guesses to crack code, end game
+				this.gameState = GAME_STATE_CODE_BREAKER_RAN_OUT_OF_GUESSES;
+			}else{
+				//increment the current guess slot
+				this.currentGuessSlotNum++;
+			}
+		}
 		return resp;
 	}
 	
@@ -235,9 +265,9 @@ public class MasterMindGame implements Serializable{
 		if(secreteSpots.size() != guessSpots.size())
 			throw new IllegalStateException("Number of guess spots does not match number of secrete spots, cannot properly calculate guess");
 		
-		GuessResult guessResult = new GuessResult();
+		GuessResult guessResult = new GuessResult(slot);
 		
-		//loop through secrete spots, finding right color right spot and right color wrong spot results
+		//loop through secrete spots, finding right color right spot (black) and right color wrong spot(white) results
 		SortedMap<Integer, Boolean> guessesAlreadyGivenResult = new TreeMap<Integer, Boolean>();
 		SortedMap<Integer, Boolean> secretsAlreadyGivenResult = new TreeMap<Integer, Boolean>();
 		
@@ -322,20 +352,24 @@ public class MasterMindGame implements Serializable{
 		return numColors;
 	}
 
-	public Player getPlayer1() {
-		return player1;
-	}
-
-	public Player getPlayer2() {
-		return player2;
-	}
-
 	public List<Piece> getGuessOptions() {
 		return guessOptions;
 	}
 
 	public Integer getCurrentGuessSlotNum() {
 		return currentGuessSlotNum;
+	}
+
+	public Player getCodeBreaker() {
+		return codeBreaker;
+	}
+
+	public Player getCodeCreator() {
+		return codeCreator;
+	}
+
+	public int getGameState() {
+		return gameState;
 	}
 	
 	

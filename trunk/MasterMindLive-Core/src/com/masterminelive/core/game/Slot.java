@@ -34,6 +34,10 @@ public class Slot {
 	}
 
 
+	public MasterMindGame getGame() {
+		return game;
+	}
+
 	public Boolean allSlotSpotsFilled(){
 		for(Integer i : this.spots.keySet()){
 			if(this.spots.get(i).isEmpty())

@@ -18,4 +18,17 @@ public class GuessResultPart {
 		return guessReultValue;
 	}
 	
+	public boolean isRightColorRightSpot(){
+		if(this.guessReultValue == GUESS_RESULT_RIGHT_COLOR_RIGHT_POSITION)
+			return true;
+		else
+			return false;
+	}
+	
+	public boolean isRightColorWrongSpot(){
+		if(this.guessReultValue == GUESS_RESULT_RIGHT_COLOR_WRONG_POSITION)
+			return true;
+		else
+			return false;
+	}
 }
