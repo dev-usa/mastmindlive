@@ -237,6 +237,7 @@ public class MasterMindLiveMainActivity extends Activity {
 		this.pinOptionsRow = (LinearLayout) findViewById(R.id.pinoptionsrow);
 		this.pinOptions = new ArrayList<ImageView>();
 
+		//Header for color options
 		TextView tv = new TextView(this);
 		tv.setText("Colors: ");
 		this.pinOptionsRow.addView(tv);
