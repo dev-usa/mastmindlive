@@ -22,6 +22,7 @@ import android.widget.TextView;
 import android.widget.TableLayout.LayoutParams;
 
 import com.mastermindlive.android.dragndrop.DragableView;
+import com.masterminelive.core.game.GuessResponse;
 import com.masterminelive.core.game.GuessResult;
 import com.masterminelive.core.game.MasterMindGame;
 import com.masterminelive.core.game.Piece;
@@ -29,7 +30,6 @@ import com.masterminelive.core.game.Slot;
 import com.masterminelive.core.game.SlotSpot;
 import com.masterminelive.core.players.Player;
 import com.masterminelive.core.players.PlayerType;
-import com.masterminelive.util.OperationResponse;
 
 /**
  * MasterMindLive main game activity Manages the game board and playing the game
@@ -47,9 +47,6 @@ public class MasterMindLiveMainActivity extends Activity {
 	private TextView statusMsg;
 	private ViewGroup mainContainer;
 	private List<ImageView> pinOptions;
-	private int numColors;
-	private int numGuesses;
-	private int numSlots;
 	private Resources res;
 	private LinearLayout pinOptionsRow;
 	private LinearLayout emptySpaceRows;
@@ -67,10 +64,10 @@ public class MasterMindLiveMainActivity extends Activity {
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		setContentView(R.layout.gamelayout);
 
-		// capture user inputs
-		this.numColors = getIntent().getIntExtra(INTENT_ATTR_NUM_COLORS, 4);
-		this.numGuesses = getIntent().getIntExtra(INTENT_ATTR_NUM_GUESSES, 10);
-		this.numSlots = getIntent().getIntExtra(INTENT_ATTR_NUM_SLOTS, 4);
+		// capture user inputs, setting defaults if null
+		int numColors = getIntent().getIntExtra(INTENT_ATTR_NUM_COLORS, 4);
+		int numGuesses = getIntent().getIntExtra(INTENT_ATTR_NUM_GUESSES, 10);
+		int numSlots = getIntent().getIntExtra(INTENT_ATTR_NUM_SLOTS, 4);
 		
 		//TODO really handle all combos of player and computers
 		//Create one human and one computer player
@@ -90,7 +87,12 @@ public class MasterMindLiveMainActivity extends Activity {
 		player2.setPlayerType(pt2);
 		
 		//construct game
-		this.mmGame  = new MasterMindGame(this.numSlots, this.numGuesses, this.numColors, player1, player2);
+		this.mmGame  = new MasterMindGame(numSlots, numGuesses, numColors, player1, player2);
+		
+		//assume game has created code secret as computer is code creator
+		//invoke the guessing state automatically
+		//TODO in real live game will have to handle transition here
+		this.mmGame.startCodeBreaking();
 		
 		//this.currentRowNum = 1;
 		this.guessRows = new TreeMap<Integer, GuessRowManager>();
@@ -119,12 +121,19 @@ public class MasterMindLiveMainActivity extends Activity {
 		View guessResults = grm.getGuessResults();
 		Button guessBtn = new Button(this);
 		guessBtn.setText("Guess");
+		guessBtn.setHeight(30);
+		guessBtn.setWidth(55);
+		guessBtn.setTextSize(12);
+		guessBtn.setBackgroundColor(0xFF32FF4B);
+		guessBtn.setPadding(0, 0, 0, 0);
+		//guessBtn.setTextColor(0x00000000);
 		guessBtn.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				doGuess();
 			}
 		});
-		grm.getGuessRowView().removeView(guessResults);
+		if(guessResults != null)
+			grm.getGuessRowView().removeView(guessResults);
 		grm.getGuessRowView().addView(guessBtn);
 		grm.setGuessResults(guessBtn);
 	}
@@ -133,29 +142,49 @@ public class MasterMindLiveMainActivity extends Activity {
 		int currentSlot= this.mmGame.getCurrentGuessSlotNum();
 		GuessRowManager grm = this.guessRows.get(currentSlot);
 		
-		OperationResponse resp = this.mmGame.guess();
+		GuessResponse resp = this.mmGame.guess();
 		
-		//check response
+		//check response for errors
 		if(resp.hadErrors()){
 			this.statusMsg.setText(resp.getErrorMsg());
 			return;
 		}
 		
-		//Draw results
+		//remove guess button
+		grm.getGuessRowView().removeView(grm.getGuessResults());
+		
+		/*
 		Drawable guessResultsDrawable = res.getDrawable(R.drawable.guessresultsbackground);
 		ImageView guessResultsView = new ImageView(this);
 		guessResultsView.setImageDrawable(guessResultsDrawable);
-		grm.getGuessRowView().removeView(grm.getGuessResults());
 		grm.getGuessRowView().addView(guessResultsView);
 		grm.setGuessResults(guessResultsView);
+		*/
 		
+		//Draw guess results
+		//TODO draw black for right spot right color and white for right color wrong spot
 		TextView tv = new TextView(this);
 		Slot updatedSlot = this.mmGame.getSlot(currentSlot);
 		GuessResult gr = updatedSlot.getGuessResult();
 		tv.setText(gr.getResultDesc());
 		grm.getGuessRowView().addView(tv);
 
-		updateGameBoard();
+		//check for winning guess
+		if(resp.getWinningGuess()){
+			//winning guess, alert user and end game
+			//TODO save user stats
+			//TODO change to checking game state
+			this.statusMsg.setText("Correct Guess, You Win!!");
+		}else{
+			if(this.mmGame.getGameState() == MasterMindGame.GAME_STATE_CODE_BREAKER_RAN_OUT_OF_GUESSES){
+				//end game, code breaker lost
+				this.statusMsg.setText("You ran out of guesses, Game Over.");
+			}else{
+				//update for next guess as this guess was incorrect
+				updateGameBoard();
+			}
+
+		}
 	}
 	
 	public void updateGameBoard(){
@@ -165,7 +194,7 @@ public class MasterMindLiveMainActivity extends Activity {
 		// capture area to build up empty guess rows
 		this.emptySpaceRows = (LinearLayout) findViewById(R.id.emptyspacesrows);
 
-		for (int i = this.numGuesses; i > 0; i--) {
+		for (int i = this.mmGame.getNumGuesses(); i > 0; i--) {
 			// add a row for each guess
 			LinearLayout guessRow = new LinearLayout(this);
 			guessRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -174,9 +203,14 @@ public class MasterMindLiveMainActivity extends Activity {
 			this.emptySpaceRows.addView(guessRow);
 			GuessRowManager grm = new GuessRowManager(i, guessRow);
 			this.guessRows.put(i, grm);
-				
+			
+			//put row number
+			TextView tv = new TextView(this);
+			tv.setText(i + "");
+			guessRow.addView(tv);
+			
 			// within each guess row add empty slot spots
-			for (int x = 1; x <= this.numSlots; x++) {
+			for (int x = 1; x <= this.mmGame.getNumSpots(); x++) {
 				Drawable emptyDrawable = res
 						.getDrawable(R.drawable.emptyslotspot);
 				ImageView emptySlotView = new ImageView(this);
@@ -188,11 +222,14 @@ public class MasterMindLiveMainActivity extends Activity {
 				grm.getSlotSpots().put(x, ss);
 			}
 			
-			Drawable guessResultsDrawable = res.getDrawable(R.drawable.guessresultsbackground);
+			/*Drawable guessResultsDrawable = res.getDrawable(R.drawable.guessresultsbackground);
 			ImageView guessResultsView = new ImageView(this);
+			LayoutParams lps = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+			lps.setMargins(0, 0, 0, 0);
+			guessResultsView.setLayoutParams(lps);
 			guessResultsView.setImageDrawable(guessResultsDrawable);
 			guessRow.addView(guessResultsView);
-			grm.setGuessResults(guessResultsView);
+			grm.setGuessResults(guessResultsView);*/
 		}
 	}
 
@@ -200,6 +237,10 @@ public class MasterMindLiveMainActivity extends Activity {
 		this.pinOptionsRow = (LinearLayout) findViewById(R.id.pinoptionsrow);
 		this.pinOptions = new ArrayList<ImageView>();
 
+		TextView tv = new TextView(this);
+		tv.setText("Colors: ");
+		this.pinOptionsRow.addView(tv);
+		
 		for (Piece p : this.mmGame.getGuessOptions()) {
 			switch (p.getColor()) {
 			case Piece.COLOR_BLUE:
